@@ -2,8 +2,13 @@
   "name": "searxng.org/devtools",
   "type": "module",
   "dependencies": {
+    "@cloudflare/containers": "latest"
+  },
+  "devDependencies": {
+    "wrangler": "latest"
   },
   "scripts": {
-    "clean": "rm -Rf node_modules package-lock.json"
+    "clean": "rm -Rf node_modules package-lock.json",
+    "deploy": "wrangler deploy --config cloudflare/wrangler.jsonc"
   }
 }

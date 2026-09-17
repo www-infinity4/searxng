@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "orange-brook-a2ac",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-17",
+  "containers": [
+    {
+      "class_name": "InfinitySearxngContainer",
+      "image": "./Dockerfile",
+      "max_instances": 1,
+      "instance_type": "lite"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SEARXNG",
+        "class_name": "InfinitySearxngContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["InfinitySearxngContainer"]
+    }
+  ]
+}

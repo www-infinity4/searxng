@@ -12,3 +12,32 @@ server:
   limiter: false
   image_proxy: false
   secret_key: "infinity-phi-cloudflare-container"
+
+# Infinity Phi image discovery: explicitly enable the broad image engines we
+# want in the Cloudflare container instead of relying on upstream defaults.
+# SearXNG merges these by engine name because use_default_settings is true.
+engines:
+  - name: google images
+    disabled: false
+    timeout: 8.0
+  - name: bing images
+    disabled: false
+    timeout: 8.0
+  - name: duckduckgo images
+    disabled: false
+    timeout: 8.0
+  - name: brave.images
+    disabled: false
+    timeout: 8.0
+  - name: flickr
+    disabled: false
+    timeout: 8.0
+  - name: openverse
+    disabled: false
+    timeout: 8.0
+  - name: startpage images
+    disabled: false
+    timeout: 8.0
+  - name: wikicommons.images
+    disabled: false
+    timeout: 8.0

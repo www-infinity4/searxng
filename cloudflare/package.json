@@ -6,7 +6,8 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "@cloudflare/containers": "latest"
+    "@cloudflare/containers": "latest",
+    "@cloudflare/puppeteer": "latest"
   },
   "devDependencies": {
     "wrangler": "latest"

@@ -55,8 +55,9 @@ function safeTarget(value) {
   return target.href;
 }
 
-async function inspectUrl(env, value) {
-  const target = safeTarget(value);
+async function inspectPage(env, input) {
+  const html = String(input?.html || "").slice(0, 250000);
+  const target = html ? "" : safeTarget(input?.url);
   const browser = await puppeteer.launch(env.BROWSER);
   try {
     const page = await browser.newPage();
@@ -74,7 +75,12 @@ async function inspectUrl(env, value) {
         reason: request.failure()?.errorText || "request failed",
       });
     });
-    const response = await page.goto(target, { waitUntil: "networkidle2", timeout: 30000 });
+    let response = null;
+    if (html) {
+      await page.setContent(html, { waitUntil: "networkidle2", timeout: 30000 });
+    } else {
+      response = await page.goto(target, { waitUntil: "networkidle2", timeout: 30000 });
+    }
     const finalUrl = page.url();
     const result = await page.evaluate(() => {
       const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
@@ -137,7 +143,7 @@ async function inspectUrl(env, value) {
       };
     });
     return {
-      requestedUrl: target,
+      requestedUrl: target || "inline-html",
       finalUrl,
       status: response?.status() || 0,
       consoleErrors: consoleErrors.slice(0, 20),
@@ -198,7 +204,24 @@ async function codePhiRoute(request, env, pathname) {
 
   try {
     if (pathname === "/code-phi/inspect") {
-      return json({ ok: true, inspection: await inspectUrl(env, body.url) });
+      const inspection = await inspectPage(env, body);
+      const issues = [
+        ...inspection.consoleErrors,
+        ...inspection.pageErrors,
+        ...inspection.failedRequests.map((item) => `${item.reason}: ${item.url}`),
+        ...inspection.diagnostics.brokenImages.map((item) => `Broken image: ${item.url}`),
+        ...(inspection.diagnostics.horizontalOverflow ? ["Horizontal mobile overflow detected."] : []),
+      ].slice(0, 30);
+      return json({
+        ok: true,
+        summary: issues.length
+          ? `Cloud Browser found ${issues.length} item${issues.length === 1 ? "" : "s"} to review.`
+          : "Cloud Browser completed the mobile inspection with no blocking errors.",
+        issues,
+        repairs: [],
+        html: "",
+        inspection,
+      });
     }
 
     const urls = [
@@ -206,7 +229,7 @@ async function codePhiRoute(request, env, pathname) {
       ...(body.url ? [body.url] : []),
     ].slice(0, 3);
     const inspections = [];
-    for (const url of urls) inspections.push(await inspectUrl(env, url));
+    for (const url of urls) inspections.push(await inspectPage(env, { url }));
     return json({ ok: true, plan: buildPlan(body, inspections) });
   } catch (error) {
     return json({ ok: false, error: error?.message || "Browser inspection failed." }, 400);

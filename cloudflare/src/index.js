@@ -47,10 +47,10 @@ function safeTarget(value) {
     host === "0.0.0.0" ||
     host === "127.0.0.1" ||
     host === "::1" ||
-    /^10./.test(host) ||
-    /^192.168./.test(host) ||
-    /^169.254./.test(host) ||
-    /^172.(1[6-9]|2d|3[01])./.test(host);
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host);
   if (blocked) throw new Error("Private network URLs are not allowed.");
   return target.href;
 }
@@ -60,10 +60,24 @@ async function inspectUrl(env, value) {
   const browser = await puppeteer.launch(env.BROWSER);
   try {
     const page = await browser.newPage();
-    await page.goto(target, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await page.setViewport({ width: 412, height: 915, deviceScaleFactor: 1 });
+    const consoleErrors = [];
+    const pageErrors = [];
+    const failedRequests = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text().slice(0, 500));
+    });
+    page.on("pageerror", (error) => pageErrors.push(String(error?.message || error).slice(0, 500)));
+    page.on("requestfailed", (request) => {
+      failedRequests.push({
+        url: request.url().slice(0, 1000),
+        reason: request.failure()?.errorText || "request failed",
+      });
+    });
+    const response = await page.goto(target, { waitUntil: "networkidle2", timeout: 30000 });
     const finalUrl = page.url();
     const result = await page.evaluate(() => {
-      const clean = (value) => String(value || "").replace(/s+/g, " ").trim();
+      const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
       const unique = (items, key) => {
         const seen = new Set();
         return items.filter((item) => {
@@ -95,6 +109,15 @@ async function inspectUrl(env, value) {
           .filter((item) => /^https?:/.test(item.url)),
         (item) => item.url
       ).slice(0, 30);
+      const brokenImages = images.filter((item) => item.width === 0 || item.height === 0);
+      const unlabeledControls = [...document.querySelectorAll("button,input,select,textarea")]
+        .filter((node) => {
+          const label = node.getAttribute("aria-label") || node.getAttribute("title") || node.labels?.[0]?.textContent;
+          return !clean(label || node.textContent || node.value);
+        })
+        .map((node) => node.outerHTML.slice(0, 300))
+        .slice(0, 20);
+      const overflow = document.documentElement.scrollWidth > window.innerWidth + 2;
       return {
         title: clean(document.title),
         description: meta('meta[name="description"]') || meta('meta[property="og:description"]'),
@@ -104,10 +127,24 @@ async function inspectUrl(env, value) {
         headings,
         links,
         images,
+        diagnostics: {
+          brokenImages,
+          unlabeledControls,
+          horizontalOverflow: overflow,
+          viewport: { width: window.innerWidth, height: window.innerHeight },
+        },
         text: clean(document.body?.innerText).slice(0, 14000),
       };
     });
-    return { requestedUrl: target, finalUrl, ...result };
+    return {
+      requestedUrl: target,
+      finalUrl,
+      status: response?.status() || 0,
+      consoleErrors: consoleErrors.slice(0, 20),
+      pageErrors: pageErrors.slice(0, 20),
+      failedRequests: failedRequests.slice(0, 30),
+      ...result,
+    };
   } finally {
     await browser.close();
   }

@@ -6,6 +6,13 @@
   "browser": {
     "binding": "BROWSER"
   },
+  "services": [
+    {
+      "binding": "ROGERS",
+      "service": "infinity-rogers",
+      "environment": "production"
+    }
+  ],
   "containers": [
     {
       "class_name": "InfinitySearxngContainer",

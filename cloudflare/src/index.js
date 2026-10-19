@@ -262,7 +262,12 @@ export default {
     }
 
     // Every existing search path still uses the same named SearXNG container.
+    try {
     const container = getContainer(env.SEARXNG, "infinity-searxng");
     return withCors(await container.fetch(request));
+    } catch (error) {
+      console.error("SearXNG container request failed", String(error?.message || error));
+      return json({ ok: false, error: "searxng_container_unavailable", results: [] }, 502);
+    }
   },
 };
